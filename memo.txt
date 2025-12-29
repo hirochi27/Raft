@@ -1,0 +1,23 @@
+ self.id = process_id
+        self.all_process_ids = all_process_ids  # 全プロセスIDのリスト
+        
+        self.current_term = 1
+        self.leader_id = 10001  # リーダー固定
+        self.prev_log_index = prev_log_index
+        self.prev_log_term = prev_log_term
+        self.entries = []
+        self.leader_commit = leader_commit
+
+
+        message_append_entries = {
+        "type" : "APPEND_ENTRIES",
+        #"id" : "self.id",
+        "term" : "self.current_term",
+        "leaderID" : "self.leader_id",
+        "prevLogIndex" : "self.prev_log_index",
+        "prevLogTerm" : "self.prev_log_term",
+        "entries" : "self.entries",
+        "leaderCommit" : "self.leader_commit"
+        }
+
+         "message_leaderid", message_previndex, message_prevterm, message_entries, message_leadercommit
