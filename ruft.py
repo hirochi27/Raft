@@ -4,7 +4,7 @@ import json
 import time
 
 class Process():
-    def __init__(self, process_id, all_process_ids, current_term, prev_log_index, prev_log_term, leader_commit, current_entry):
+    def __init__(self, process_id, all_process_ids, prev_log_index, prev_log_term, leader_commit,  ):
         super().__init__()
         self.id = process_id
         self.all_process_ids = all_process_ids  # 全プロセスIDのリスト
@@ -14,17 +14,28 @@ class Process():
         self.leader_id = 10001  # リーダー固定
         self.prev_log_index = prev_log_index
         self.prev_log_term = prev_log_term
-        self.entries = []
+        self.entries = [] #フォロワーに送るエントリ
         self.leader_commit = leader_commit
+
+        self.log = [] #持ってるログ（ターム、エントリ）
+        self.next_index = {}
 
 
     def input_logs(self):
         #別スレッドで入力を受け取る
         while True:
             entry = input("enter command to add")
-            self.entries.append(entry)
+
+            log_entry = {
+                "term" : self.current_term,
+                "entry" : entry
+            }
+            
+            self.log.append(log_entry)#リーダーのログに追加
             print(str(entry) + "をリーダーのログに追加しました")
-            print(str(self.entries) + "現在のログ")
+            #self.log.append({"term":self.current_term, "term":self.entries})
+            print(str(self.log) + "現在のログ")
+
 
 
     def append_entries(self):
@@ -51,6 +62,7 @@ class Process():
         #ソケット通信でデータを受信する
         #データを受信したら別スレッドでhandle_messageを呼び出す
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("127.0.0.1", self.id))
         sock.listen()
 
@@ -110,6 +122,12 @@ class Process():
                 print("自分がリーダー")               
                 time.sleep(2.0)
 
+            if self.is_leader and not self.next_index:
+                for i in self.all_process_ids:
+                    if i != self.id:
+                        self.next_index[i] = 0
+                        print("nextIndex初期化" + str(self.next_index))
+
 
 if __name__ == "__main__":
     # 簡単なテストのためにプロセスIDをいくつか定義
@@ -123,7 +141,6 @@ if __name__ == "__main__":
         process_ids[index],
         process_ids,
         1,
-        0,
         0,
         0
         ) 

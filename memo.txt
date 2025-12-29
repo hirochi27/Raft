@@ -21,3 +21,14 @@
         }
 
          "message_leaderid", message_previndex, message_prevterm, message_entries, message_leadercommit
+
+
+
+         entries　フォロワーに送る差分ログ
+         log　リーダーが持ってるログ
+         に変更した。
+          handle_messageでentriesをプリントしてるから多分何もでてこない
+          メッセージ内のentriesで、追加分だけのログを送れるようにすればいけそう
+       　　12/30
+
+
