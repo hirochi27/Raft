@@ -27,6 +27,11 @@ class Process():
         self.append_entries_success = False
         #for pid in all_process_ids:
           #self.next_index[pid] = 0
+        self.sent_entries_len = {
+            10001: 0,
+            10002: 0,
+            10003: 0
+        }
 
     def input_logs(self):
         #別スレッドで入力を受け取る
@@ -49,21 +54,13 @@ class Process():
 
     def append_entries(self):
 
-        message_append_entries = {
-        "type" : "APPEND_ENTRIES",
-        #"id" : "self.id",
-        "term" : self.current_term,
-        "leaderID" : self.leader_id,
-        "prevLogIndex" : self.prev_log_index,
-        "prevLogTerm" : self.prev_log_term,
-        "entries" : self.entries,
-        "leaderCommit" : self.leader_commit
-        }
-
         for id in self.all_process_ids:
+            
             #if id == self.leader_id:
                 #continue
+            
             self.entries = self.log[self.next_index[id]:]#送るエントリは、logのnextindexから先
+            self.sent_entries_len[id] = len(self.entries)
             self.prev_log_index = self.next_index[id]-1 #prevlogindexはnextの一個前
             if self.prev_log_index == -1:#prevlogindexが-1のときprevlogrermは１
                 self.prev_log_term = 1 #ターム数の変更実装前なのでとりあえず１
@@ -73,46 +70,67 @@ class Process():
                 print(f"Warning: prev_log_index {self.prev_log_index} is out of range for log length {len(self.log)}")
                 self.prev_log_term = 1
                 #logの中の、インデックス＝prevlogindexに含まれるキーtermの値を取得
-            
+
+            message_append_entries = {
+            "type" : "APPEND_ENTRIES",
+            #"id" : "self.id",
+            "term" : self.current_term,
+            "leaderID" : self.leader_id,
+            "prevLogIndex" : self.prev_log_index,
+            "prevLogTerm" : self.prev_log_term,
+            "entries" : self.entries,
+            "leaderCommit" : self.leader_commit
+            }
             #フォロワーから返信受け取ってから以下のプリント
             #print("prevlogインデックス"+str(self.#prev_log_index)+"prevlogターム"+ str(self.prev_log_term))
 
             self.send_message(id, message_append_entries)
         print("AppendEntriesRPC")
-        time.sleep(1.0)
+        time.sleep(4.0)
 
 
     def on_append_entries(self, term,  leader_id, prev_log_index, prev_log_term, entries, leader_commit):
         #appendEintriesを受け取ったフォロワー側の処理
         #prevlogindex,prevlogtermを受け取ってOkの時はsuccessをTrue。一致しない時はFalse
         #これをリーダーへ返す
+        print(f"[フォロワー{self.id}] prev_log_index={prev_log_index}, len(self.log)={len(self.log)}, entries={entries}")
+        if prev_log_term < self.current_term:
+            self.append_entries_success = False
+            print("False１を送りました")
+        else: #self.prev_log_term >= self.current_term
+            if prev_log_index + 1 == len(self.log):#リーダーからのprev＋１が自分のログと一緒
+                print(f"条件1: prev_log_index + 1 ({prev_log_index + 1}) == len(self.log) ({len(self.log)})")
+                for e in entries:
+                    self.log.append(e)
+                print(f"エントリ追加後のlog: {self.log}")
+                self.append_entries_success = True
+                print("Trueを送りました")
+            elif prev_log_index + 1 < len(self.log):#リーダーのindexが自身のログより少ない＝既に持ってる
+                print(f"条件2: prev_log_index + 1 ({prev_log_index + 1}) < len(self.log) ({len(self.log)})")
+                print(f"現在のlog: {self.log}")
+                self.append_entries_success = True#後で変更？termとindexが一緒だったらok?
+                print("既に持ってる")
+            else:#自身のlogがリーダーのprevlogindexより少ない＝prevlogindexを1つ前にして、ってリーダーに言いたい
+                print(f"条件3: logが足りない")
+                self.append_entries_success = False
+                print("False２を送りました")
+
         response = {
             "type" : "RESPONSE",
             "from_id" : self.id,
-            "success" :  self.append_entries_success,
-            "entries_count": len(entries)
+            "success" :  self.append_entries_success
             }
         
-        if prev_log_term < self.current_term:
-            self.append_entries_success = False
-            self.send_message(self.leader_id, response)
-            print("False１を送りました")
-        elif prev_log_index in self.log and prev_log_term in self.log:
-            self.append_entries_success = False
-            self.send_message(self.leader_id, response)
-            print("False２を送りました")
-        else: #self.prev_log_term >= self.current_term
-            self.append_entries_success = True
-            self.send_message(self.leader_id, response)
-            print("Trueを送りました")
+        self.send_message(self.leader_id, response)
         print("!!self.append_entries_success!!")
 
-    def on_append_entries_response(self, from_id, success, count):
+    def on_append_entries_response(self, from_id, success):
         #true,Falseを受け取ったら
         #trueの場合、nextindexを”送ったエントリの次”にする
-        print(success)
+        print("success")
         if success == True:
             print("True")
+            count = self.sent_entries_len.get(from_id, 0)
             self.next_index[from_id] = self.next_index[from_id] + count#仮
             print(self.next_index)
         elif success == False:
@@ -167,8 +185,9 @@ class Process():
             message_entries = message.get("entries")#差分を受け取り
             message_leadercommit = message.get("leaderCommit")
 
-            print("ターム" + str(message_term))
-            print("リーダー"+ str(message_leaderid)+str(message_entries))   
+            print(f"ターム: {message_term}")
+            print(f"リーダーID: {message_leaderid}")
+            print(f"受信エントリ: {message_entries}")  
 
             self.on_append_entries(
                 term = message_term,
@@ -182,11 +201,9 @@ class Process():
         if message_type == "RESPONSE":
             message_success = message.get("success")
             message_from_id = message.get("from_id")
-            message_entries_count = message.get("entries_count")
             self.on_append_entries_response(
                 from_id = message_from_id,
                 success = message_success,
-                count = message_entries_count
             )
 
             
@@ -212,8 +229,9 @@ class Process():
 
             if self.is_leader == True:
                 self.append_entries()
-                print("自分がリーダー")               
-                time.sleep(2.0)
+                print("自分がリーダー") 
+                print(self.log)              
+                time.sleep(4.0)
 
 if __name__ == "__main__":
     # 簡単なテストのためにプロセスIDをいくつか定義

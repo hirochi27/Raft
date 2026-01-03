@@ -1,0 +1,76 @@
+エントリ追加した後、多分countがずっと１で、ずっとindexが追加され続ける
+
+
+
+enter command to add[Process 10001] 起動しました。
+ターム1
+リーダー10001[]
+AppendEntriesRPC
+False１を送りました
+!!self.append_entries_success!!
+False
+False
+自分がリーダー
+AppendEntriesRPC
+ターム1
+リーダー10001[]
+Trueを送りました
+!!self.append_entries_success!!
+False
+False
+自分がリーダー
+ターム1
+リーダー10001[]
+AppendEntriesRPC
+Trueを送りました
+!!self.append_entries_success!!
+True
+True
+{10001: 0, 10002: 0, 10003: 0}
+自分がリーダー
+aiueo
+aiueoをリーダーのログに追加しました
+[{'term': 1, 'entry': 'aiueo'}]現在のログ
+enter command to addターム1
+リーダー10001[]
+Trueを送りました
+!!self.append_entries_success!!
+True
+True
+{10001: 0, 10002: 0, 10003: 0}
+AppendEntriesRPC
+自分がリーダー
+AppendEntriesRPC
+ターム1
+リーダー10001[{'term': 1, 'entry': 'aiueo'}]
+Trueを送りました
+!!self.append_entries_success!!
+True
+True
+{10001: 1, 10002: 0, 10003: 0}
+自分がリーダー
+ターム1
+リーダー10001[{'term': 1, 'entry': 'aiueo'}]
+Trueを送りました
+!!self.append_entries_success!!
+True
+True
+{10001: 2, 10002: 0, 10003: 0}
+AppendEntriesRPC
+自分がリーダー
+Warning: prev_log_index 1 is out of range for log length 1
+ターム1
+リーダー10001[{'term': 1, 'entry': 'aiueo'}]
+AppendEntriesRPC
+Trueを送りました
+!!self.append_entries_success!!
+True
+True
+{10001: 3, 10002: 0, 10003: 0}
+自分がリーダー
+Warning: prev_log_index 2 is out of range for log length 1
+ターム1
+リーダー10001[{'term': 1, 'entry': 'aiueo'}]
+AppendEntriesRPC
+True
+True
