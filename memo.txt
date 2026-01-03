@@ -31,4 +31,25 @@
           メッセージ内のentriesで、追加分だけのログを送れるようにすればいけそう
        　　12/30
 
+       今appendentriesが送れた
+         次やること
+            prevlog,previndexがあってるか確認
+            あってたらリーダーのnextindexから先を送る
+               self.log[{term, entry},{term, entry}.....]
+               nextindex[follower_id0, follower_id1, follower_id2]
+               entries
+                  self.log[nextIndex[follower_id0]:]
+
+      たぶんできた？nextIndexが増えない！！！
+      nextIndex
+
+      term = message_term,
+                leader_id
+                prev_log_index
+                prev_log_term
+                entries
+                leader_commit
+
+
+
 
