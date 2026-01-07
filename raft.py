@@ -33,6 +33,18 @@ class Process():
             10003: 0
         }
 
+        self.state_machine = {
+            10001: -1,
+            10002: -1,
+            10003: -1,
+        }
+
+        self.match_index = {
+            10001: -1,
+            10002: -1,
+            10003: -1
+        }
+
     def input_logs(self):
         #別スレッドで入力を受け取る
         #自身のログに追加
@@ -48,6 +60,8 @@ class Process():
             self.log.append(log_entry)#リーダーのログに追加
             print(str(entry) + "をリーダーのログに追加しました")
             print(str(self.log) + "現在のログ")
+            self.match_index[self.leader_id] += len(self.log)#リーダーのmatchindex?
+            print(str(self.match_index) + "リーダーのマッチインデックス更新")
 
     def output_entries(self):
         pass
@@ -94,6 +108,8 @@ class Process():
         #prevlogindex,prevlogtermを受け取ってOkの時はsuccessをTrue。一致しない時はFalse
         #これをリーダーへ返す
         print(f"[フォロワー{self.id}] prev_log_index={prev_log_index}, len(self.log)={len(self.log)}, entries={entries}")
+        self.state_machine[self.id] = leader_commit
+        print(f"!!!!!!!ステートマシン適用" + str(self.id) + str(self.state_machine[self.id]))
         if prev_log_term < self.current_term:
             self.append_entries_success = False
             print("False１を送りました")
@@ -131,12 +147,19 @@ class Process():
         if success == True:
             print("True")
             count = self.sent_entries_len.get(from_id, 0)
-            self.next_index[from_id] = self.next_index[from_id] + count#仮
-            print(self.next_index)
+            self.next_index[from_id] = self.next_index[from_id] + count#送ったエントリ数文next_indexを増やす
+            print("NEXINDEX" + str(self.next_index[from_id]))
+            self.match_index[from_id] = self.next_index[from_id] - 1 #コミットのためのどこまで複製したかの追跡
         elif success == False:
             print("False")
             self.next_index[from_id] = max(0, self.next_index[from_id] -1)
-            pass
+            print("NEXINDEX2" + str(self.next_index[from_id]))
+        
+        all_match_index_value = list(self.match_index.values())
+        all_match_index_value.sort()#昇順？に並べる→昇順にしたら中心にいるのはぜったい過半数
+        majority_index = len(all_match_index_value) // 2 #len(self.all_process_ids) / 2 + 1
+        self.leader_commit = all_match_index_value[majority_index]
+        self.state_machine[self.leader_id] = self.leader_commit
 
 
     def keep_listening(self):
@@ -226,6 +249,12 @@ class Process():
                     if pid != self.id:
                         self.next_index[pid] = 0
                         print("nextIndex初期化" + str(self.next_index))
+
+            if self.is_leader and not self.match_index:
+                for k in self.all_process_ids:
+                    if k != self.id:
+                        self.match_index[k] = -1
+                        print("matchIndex初期化")
 
             if self.is_leader == True:
                 self.append_entries()

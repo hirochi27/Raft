@@ -1,0 +1,95 @@
+1. matchIndex を追加
+
+  - next_indexと同じように、各フォロワーごとに「どこまでレプリケーション成功したか」を追跡
+  - matchIndex[follower_id] = X → そのフォロワーはインデックスXまで持っている
+
+  2. 成功レスポンス時に matchIndex を更新
+
+  - on_append_entries_response() で success == True の時
+  - そのフォロワーの matchIndex を更新（送ったエントリの最後のインデックスまで）
+
+  3. 過半数の判定
+
+  - 全ノード（リーダー含む）の matchIndex を集める
+  - リーダー自身は常に len(self.log) - 1 まで持っている
+  - これらをソートして、中央値を取る
+  - 例：5ノードなら3番目、3ノードなら2番目の値が「過半数が持っているインデックス」
+↑できた
+  4. commitIndex を更新
+
+  過半数が持っているインデックス N があったら:
+    if N > self.leader_commit:
+        self.leader_commit = N
+
+  ポイント
+
+  - matchIndexは成功した時だけ更新（Falseの時は触らない）
+  - 過半数 = (ノード数 // 2) + 1
+  - ソートした配列の真ん中の値 = 過半数のノードが到達しているインデックス
+
+
+  
+  解決策：matchIndexを絶対値で設定する
+
+  相対的に +1 するのではなく、「そのフォロワーがどこまで持っているか」を絶対値で設定します。
+
+  考え方
+
+  - next_index[follower_id] = 次に送るべきインデックス
+  - matchIndex[follower_id] = 一致が確認されたインデックス
+
+  つまり：
+  matchIndex[follower_id] = next_index[follower_id] - 1
+
+  実装例（概念）
+
+  if success == True:
+      count = self.sent_entries_len.get(from_id, 0)
+      self.next_index[from_id] = self.next_index[from_id] + count  # これは既にある
+
+      # matchIndexを絶対値で設定
+      self.matchIndex[from_id] = self.next_index[from_id] - 1
+
+  なぜこれで解決するか
+
+  - 何度Trueが来ても、matchIndexはnext_index - 1に設定される
+  - エントリを送っていない時（ハートビート）はcount = 0なので、next_indexもmatchIndexも変わらない
+  - 新しいエントリを送って成功したら、両方とも適切に進む
+
+
+
+
+  commitindexはフォロワーごとに値があるのではなく、一定ですよね？self.leader_commitで行けますか？ 
+
+● はい、その通りです！
+
+  commitIndexについて
+
+  - 各ノードが1つだけ持つ値（フォロワーごとではない）
+  - リーダーは self.leader_commit
+  - フォロワーも自分の commit_index が必要
+
+  混同しやすい概念
+
+  | 変数                              | 誰が持つ     | 何を表す                           |
+  |-----------------------------------|--------------|------------------------------------|
+  | commitIndex（self.leader_commit） | 各ノード1つ  | 自分がcommitしたインデックス       |
+  | matchIndex{}                      | リーダーのみ | 各フォロワーがどこまで持っているか |
+
+  実装イメージ
+
+  # リーダー
+  self.leader_commit = 0  # リーダー自身のcommitIndex
+  self.matchIndex = {10001: 0, 10002: 0, 10003: 0}  # 各フォロワーの状態
+
+  # フォロワー
+  self.commit_index = 0  # フォロワー自身のcommitIndex
+
+  流れ
+
+  1. リーダーが matchIndex を見て過半数を判定
+  2. self.leader_commit を更新
+  3. AppendEntriesで leaderCommit をフォロワーに送る
+  4. フォロワーは受け取った leaderCommit で自分の commit_index を更新
+
+  self.leader_commit で大丈夫です！👍
