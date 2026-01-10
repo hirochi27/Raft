@@ -70,8 +70,8 @@ class Process():
 
         for id in self.all_process_ids:
             
-            #if id == self.leader_id:
-                #continue
+            if id == self.leader_id:
+                continue
             
             self.entries = self.log[self.next_index[id]:]#送るエントリは、logのnextindexから先
             self.sent_entries_len[id] = len(self.entries)
@@ -110,26 +110,48 @@ class Process():
         print(f"[フォロワー{self.id}] prev_log_index={prev_log_index}, len(self.log)={len(self.log)}, entries={entries}")
         self.state_machine[self.id] = leader_commit
         print(f"!!!!!!!ステートマシン適用" + str(self.id) + str(self.state_machine[self.id]))
-        if prev_log_term < self.current_term:
+
+        if term < self.current_term:  # != ではなく <
             self.append_entries_success = False
-            print("False１を送りました")
-        else: #self.prev_log_term >= self.current_term
-            if prev_log_index + 1 == len(self.log):#リーダーからのprev＋１が自分のログと一緒
-                print(f"条件1: prev_log_index + 1 ({prev_log_index + 1}) == len(self.log) ({len(self.log)})")
+            return
+        self.current_term = term
+        if prev_log_index == -1:
+            for e in entries:
+                self.log.append(e)
+            self.append_entries_success = True
+            print(f"エントリ追加後のlog: {self.log}")
+        elif 0 <= prev_log_index < len(self.log):
+            if prev_log_term == self.log[prev_log_index]["term"]:
+                self.log = self.log[:prev_log_index + 1]  
                 for e in entries:
                     self.log.append(e)
-                print(f"エントリ追加後のlog: {self.log}")
                 self.append_entries_success = True
-                print("Trueを送りました")
-            elif prev_log_index + 1 < len(self.log):#リーダーのindexが自身のログより少ない＝既に持ってる
-                print(f"条件2: prev_log_index + 1 ({prev_log_index + 1}) < len(self.log) ({len(self.log)})")
-                print(f"現在のlog: {self.log}")
-                self.append_entries_success = True#後で変更？termとindexが一緒だったらok?
-                print("既に持ってる")
-            else:#自身のlogがリーダーのprevlogindexより少ない＝prevlogindexを1つ前にして、ってリーダーに言いたい
-                print(f"条件3: logが足りない")
+                print(f"エントリ追加後のlog: {self.log}")
+                print(f"Trueを"+ str(self.leader_id)+"におくりました")
+            else:
                 self.append_entries_success = False
-                print("False２を送りました")
+                print(f"Falseを"+ str(self.leader_id)+"におくりました")
+        else:
+            self.append_entries_success = False
+            print(f"Falseを"+ str(self.leader_id)+"におくりました")
+
+            
+        #else: #self.prev_log_term >= self.current_term
+            # if prev_log_index + 1 == len(self.log):#リーダーからのprev＋１が自分のログと一緒
+            #     print(f"条件1: prev_log_index + 1 ({prev_log_index + 1}) == len(self.log) ({len(self.log)})")
+            #     for e in entries:
+            #         self.log.append(e)
+            #     print(f"エントリ追加後のlog: {self.log}")
+            #     self.append_entries_success = True
+            #     print("Trueを送りました")
+            # elif prev_log_index + 1 < len(self.log):#リーダーのindexが自身のログより少ない＝既に持ってる
+            #     print(f"条件2: prev_log_index + 1 ({prev_log_index + 1}) < len(self.log) ({len(self.log)})")
+            #     print(f"現在のlog: {self.log}")
+            #     self.append_entries_success = True#後で変更？termとindexが一緒だったらok?
+            #     print("既に持ってる")
+            # else:#自身のlogがリーダーのprevlogindexより少ない＝prevlogindexを1つ前にして、ってリーダーに言いたい
+            #     print(f"条件3: logが足りない")
+            #     self.append_entries_success = False
 
         response = {
             "type" : "RESPONSE",

@@ -1,0 +1,45 @@
+1. on_append_entries の整合性チェックが間違っています (113行目)
+
+  if prev_log_term < self.current_term:
+      self.append_entries_success = False
+
+  問題点:
+  - prev_log_term と self.current_term を比較していますが、これは誤りです
+  - Raftでは、自分のログの prev_log_index 位置にあるエントリのタームが prev_log_term と一致するか をチェックすべきです
+
+  正しい実装:
+  # prev_log_indexの位置にログが存在するか、そのタームがprev_log_termと一致するかをチェック
+  if prev_log_index >= 0:  # -1は初期状態なのでOK
+      if len(self.log) <= prev_log_index:
+          # ログが足りない
+          self.append_entries_success = False
+      elif self.log[prev_log_index]["term"] != prev_log_term:
+          # タームが一致しない → ログの衝突
+          self.append_entries_success = False
+          # ここで self.log[prev_log_index:] を削除すべき
+
+  2. ログの衝突処理が実装されていません (117-128行目)
+
+  Raftでは、既存のエントリと新しいエントリのタームが異なる場合、既存のエントリとそれ以降をすべて削除 する必要があります。現在の実装では「既に持ってる」として何もしていません。
+
+  3. commitIndex の適用が不完全 (111行目)
+
+  self.state_machine[self.id] = leader_commit
+
+  問題点:
+  - フォロワーは min(leaderCommit, len(self.log) - 1) までしかcommitできません
+  - 自分のログがまだそこまで到達していない可能性があります
+
+  正しい実装:
+  if leader_commit > self.commit_index:
+      self.commit_index = min(leader_commit, len(self.log) - 1)
+      # ここでcommit_indexまでのエントリをstate machineに適用
+
+  ---
+  📋 その他の改善点
+
+  - state_machine の使い方: 現在はcommitIndexの値を入れていますが、本来はコミットされたコマンドを実行した結果を保持すべきです
+  - エッジケースの処理: 空のエントリ（ハートビート）の処理も明示的に書くとより安全です
+
+  ---
+  まとめ: 特に on_append_entries の整合性チェック（raft.py:113-132）がRaftの仕様と大きく異なっています。これを修正する必要があります。
