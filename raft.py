@@ -33,11 +33,9 @@ class Process():
             10003: 0
         }
 
-        self.state_machine = {
-            10001: -1,
-            10002: -1,
-            10003: -1,
-        }
+        self.last_applied = -1
+
+        self.state_machine = {}
 
         self.match_index = {
             10001: -1,
@@ -50,18 +48,27 @@ class Process():
         #自身のログに追加
         #currentIndexとprevIndex,Termを抽出
         while True:
-            entry = input("enter command to add")
+            line = input("enter command (例： SET x 1)")
+            parts = line.split()
+            if len(parts) >= 3 and parts[0].upper() == "SET":
+                entry = (parts[0].upper(), parts[1], parts[2])
+            elif len(parts) >= 2 and parts[0].upper() == "DELETE":
+                entry = (parts[0].upper(), parts[1], None)
+            elif len(parts) >= 2 and parts[0].upper() == "GET":
+                entry = (parts[0].upper(), parts[1], None) 
+            else:
+                print("無効なコマンド")
 
+            
             log_entry = {
                 "term" : self.current_term,
                 "entry" : entry
             }
             
             self.log.append(log_entry)#リーダーのログに追加
-            print(str(entry) + "をリーダーのログに追加しました")
-            print(str(self.log) + "現在のログ")
+            print(f"[{self.id}]ログ追加:{entry}, log = {self.log}")
             self.match_index[self.leader_id] = len(self.log) -1 #リーダーのmatchindex?
-            print(str(self.match_index) + "リーダーのマッチインデックス更新")
+            #print(str(self.match_index) + "リーダーのマッチインデックス更新")
 
     def output_entries(self):
         pass
@@ -99,17 +106,18 @@ class Process():
             #print("prevlogインデックス"+str(self.#prev_log_index)+"prevlogターム"+ str(self.prev_log_term))
 
             self.send_message(id, message_append_entries)
-        print("AppendEntriesRPC")
-        time.sleep(4.0)
+            print(f"[{self.id}→{id}] AppendEntriesRPC送信 entries = {self.entries}")
+        time.sleep(2.0)
 
 
     def on_append_entries(self, term,  leader_id, prev_log_index, prev_log_term, entries, leader_commit):
         #appendEintriesを受け取ったフォロワー側の処理
         #prevlogindex,prevlogtermを受け取ってOkの時はsuccessをTrue。一致しない時はFalse
         #これをリーダーへ返す
-        print(f"[フォロワー{self.id}] prev_log_index={prev_log_index}, len(self.log)={len(self.log)}, entries={entries}")
-        self.state_machine[self.id] = leader_commit
-        print(f"!!!!!!!ステートマシン適用" + str(self.id) + str(self.state_machine[self.id]))
+        print(f"[{self.id}] ← {leader_id} AppendEntries受信 entries={entries}")
+        self.leader_commit = leader_commit
+        self.apply_to_state_machine()
+        print(f"[{self.id}] ステートマシン適用 commit={leader_commit}")
 
         if term < self.current_term:  # != ではなく <
             self.append_entries_success = False
@@ -119,21 +127,21 @@ class Process():
             for e in entries:
                 self.log.append(e)
             self.append_entries_success = True
-            print(f"エントリ追加後のlog: {self.log}")
+            #print(f"エントリ追加後のlog: {self.log}")
         elif 0 <= prev_log_index < len(self.log):
             if prev_log_term == self.log[prev_log_index]["term"]:
                 self.log = self.log[:prev_log_index + 1]  
                 for e in entries:
                     self.log.append(e)
                 self.append_entries_success = True
-                print(f"エントリ追加後のlog: {self.log}")
-                print(f"Trueを"+ str(self.leader_id)+"におくりました")
+                #print(f"エントリ追加後のlog: {self.log}")
+                print(f"[{self.id}] → {self.leader_id} 応答: True")
             else:
                 self.append_entries_success = False
-                print(f"Falseを"+ str(self.leader_id)+"におくりました")
+                print(f"[{self.id}] → {self.leader_id} 応答: False")
         else:
             self.append_entries_success = False
-            print(f"Falseを"+ str(self.leader_id)+"におくりました")
+            print(f"[{self.id}] → {self.leader_id} 応答: False")
 
             
         response = {
@@ -142,29 +150,55 @@ class Process():
             "success" :  self.append_entries_success
             }
         
+        print(f"[{self.id}] log={self.log}")
+
         self.send_message(self.leader_id, response)
-        print("!!self.append_entries_success!!")
+        #print("!!self.append_entries_success!!")
 
     def on_append_entries_response(self, from_id, success):
         #true,Falseを受け取ったら
         #trueの場合、nextindexを”送ったエントリの次”にする
-        print("success")
+        #print("success")
         if success == True:
-            print("True")
+            #print("True")
             count = self.sent_entries_len.get(from_id, 0)
             self.next_index[from_id] = self.next_index[from_id] + count#送ったエントリ数文next_indexを増やす
-            print("NEXINDEX" + str(self.next_index[from_id]))
+            print(f"[{self.id}] ← {from_id} 応答受信: {success}")
+            print(f"nextIndex={self.next_index[from_id]}")
             self.match_index[from_id] = self.next_index[from_id] - 1 #コミットのためのどこまで複製したかの追跡
         elif success == False:
-            print("False")
+            #print("False")
             self.next_index[from_id] = max(0, self.next_index[from_id] -1)
-            print("NEXINDEX2" + str(self.next_index[from_id]))
+            print(f"[{self.id}] ← {from_id} 応答受信: failure")
+            print(f"nextIndex={self.next_index[from_id]}")
         
         all_match_index_value = list(self.match_index.values())
         all_match_index_value.sort()#昇順？に並べる→昇順にしたら中心にいるのはぜったい過半数
         majority_index = len(all_match_index_value) // 2 #len(self.all_process_ids) / 2 + 1
         self.leader_commit = all_match_index_value[majority_index]
-        self.state_machine[self.leader_id] = self.leader_commit
+        self.apply_to_state_machine()
+        print(f"[{self.id}] ステートマシン適用 commit={self.leader_commit}")
+
+    def apply_to_state_machine(self):
+        while self.last_applied < self.leader_commit:
+            if self.last_applied+1 >= len(self.log):
+                break
+
+            self.last_applied = self.last_applied + 1
+            entry = self.log[self.last_applied]["entry"]
+            
+            op, key, value = entry[0], entry[1], entry[2]
+
+            if op == "SET":                                                                                                                    
+                self.state_machine[key] = value                                                                                                
+            elif op == "DELETE" and key in self.state_machine:                                                                                 
+                del self.state_machine[key]                                                                                                    
+            elif op == "GET":                                                                                                                  
+                print(f"GET {key}={self.state_machine.get(key, 'not found')}")                                                                 
+                                                                                                                                             
+            print(f"[{self.id}] state_machine={self.state_machine}")
+                    
+
 
 
     def keep_listening(self):
@@ -177,7 +211,7 @@ class Process():
 
         while True:
             client_sock, sender_addr = sock.accept()
-            data = client_sock.recv(1024)
+            data = client_sock.recv(65536)
             message = json.loads(data.decode("UTF-8"))
             t = threading.Thread(target=self.handle_message, args=(message,))
             t.start()
@@ -213,9 +247,9 @@ class Process():
             message_entries = message.get("entries")#差分を受け取り
             message_leadercommit = message.get("leaderCommit")
 
-            print(f"ターム: {message_term}")
-            print(f"リーダーID: {message_leaderid}")
-            print(f"受信エントリ: {message_entries}")  
+            # print(f"ターム: {message_term}")
+            # print(f"リーダーID: {message_leaderid}")
+            # print(f"受信エントリ: {message_entries}")  
 
             self.on_append_entries(
                 term = message_term,
@@ -253,19 +287,19 @@ class Process():
                 for pid in self.all_process_ids:
                     if pid != self.id:
                         self.next_index[pid] = 0
-                        print("nextIndex初期化" + str(self.next_index))
+                        #print("nextIndex初期化" + str(self.next_index))
 
             if self.is_leader and not self.match_index:
                 for k in self.all_process_ids:
                     if k != self.id:
                         self.match_index[k] = -1
-                        print("matchIndex初期化")
+                        #print("matchIndex初期化")
 
             if self.is_leader == True:
                 self.append_entries()
                 print("自分がリーダー") 
                 print(self.log)              
-                time.sleep(4.0)
+                time.sleep(2.0)
 
 if __name__ == "__main__":
     # 簡単なテストのためにプロセスIDをいくつか定義
