@@ -2,16 +2,24 @@ import threading
 import socket
 import json
 import time
+import random
+
 
 class Process():
     def __init__(self, process_id, all_process_ids, prev_log_index, prev_log_term, leader_commit, next_index, append_entries_success ):
-        super().__init__()
         self.id = process_id
         self.all_process_ids = all_process_ids  # 全プロセスIDのリスト
         self.is_leader = False
-        
+
+        self.state = "follower"
+        self.voted_received = 0
+        self.voted_for = None
+        self.election_timer = time.time()
+        self.electiontimeout = random.uniform(5, 10)
+
+
         self.current_term = 1
-        self.leader_id = 10001  # リーダー固定
+        self.leader_id = None  # リーダー固定
         self.prev_log_index = prev_log_index
         self.prev_log_term = prev_log_term
         self.entries = [] #フォロワーに送るエントリ
@@ -104,6 +112,8 @@ class Process():
 
 
     def on_append_entries(self, term,  leader_id, prev_log_index, prev_log_term, entries, leader_commit):
+        self.election_timer= time.time()
+        #self.election_timeout = rondom.uniform(5)
         #appendEintriesを受け取ったフォロワー側の処理
         #prevlogindex,prevlogtermを受け取ってOkの時はsuccessをTrue。一致しない時はFalse
         #これをリーダーへ返す
@@ -165,6 +175,23 @@ class Process():
         majority_index = len(all_match_index_value) // 2 #len(self.all_process_ids) / 2 + 1
         self.leader_commit = all_match_index_value[majority_index]
         self.state_machine[self.leader_id] = self.leader_commit
+
+    def reset_election_timer(self):
+         self.election_timer = time.time()
+    
+    def start_election(self):
+        self.voted_for = self.id
+        self.voted_received = self.voted_received + 1
+
+        message_request_vote{
+            "term" : self.current_term,
+            "candidateID" : self.id,
+            "lastLogIndex" : 
+            "lastLogTerm" :    
+        }
+
+        self.send_message(self.state="follower", message_request_vote)
+        pass
 
 
     def keep_listening(self):
@@ -249,6 +276,8 @@ class Process():
             if self.id == 10001:
                 self.is_leader = True
 
+            print(f"[Process {self.id}] 現在のリーダー: {self.leader_id}")
+
             if self.is_leader and not self.next_index:
                 for pid in self.all_process_ids:
                     if pid != self.id:
@@ -266,6 +295,16 @@ class Process():
                 print("自分がリーダー") 
                 print(self.log)              
                 time.sleep(4.0)
+
+            if self.is_leader != True:
+                #カウントダウン開始
+                #RPCが来たらカウントダウンリセット
+                #if 選挙タイムアウト
+                    self.state = "candidate"
+                    self.current_term = self.current_term + 1
+                    self.start_election()
+                time.sleep(0.1)
+                
 
 if __name__ == "__main__":
     # 簡単なテストのためにプロセスIDをいくつか定義
@@ -289,4 +328,6 @@ if __name__ == "__main__":
     input_thread = threading.Thread(target=p.input_logs)
     input_thread.daemon = True
     input_thread.start()
+
+    #timeout用スレッド
     p.run()
