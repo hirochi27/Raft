@@ -196,7 +196,7 @@ class Process():
             elif op == "GET":                                                                                                                  
                 print(f"GET {key}={self.state_machine.get(key, 'not found')}")                                                                 
                                                                                                                                              
-            print(f"[{self.id}] state_machine={self.state_machine}")
+            print(f"[{self.id}] ステートマシン　=　{self.state_machine}")
                     
 
 
