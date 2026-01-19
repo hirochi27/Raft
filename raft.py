@@ -6,6 +6,9 @@ import time
 class Process():
     def __init__(self, process_id, all_process_ids, prev_log_index, prev_log_term, leader_commit, next_index, append_entries_success ):
         super().__init__()
+        self.connections = {}
+        self.conn_lock = threading.Lock()
+
         self.id = process_id
         self.all_process_ids = all_process_ids  # 全プロセスIDのリスト
         self.is_leader = False
@@ -107,7 +110,7 @@ class Process():
 
             self.send_message(id, message_append_entries)
             print(f"[{self.id}→{id}] AppendEntriesRPC送信 entries = {self.entries}")
-        time.sleep(2.0)
+        time.sleep(0.1)#2
 
 
     def on_append_entries(self, term,  leader_id, prev_log_index, prev_log_term, entries, leader_commit):
@@ -199,39 +202,103 @@ class Process():
             print(f"[{self.id}] ステートマシン　=　{self.state_machine}")
                     
 
-
-
     def keep_listening(self):
-        #ソケット通信でデータを受信する
-        #データを受信したら別スレッドでhandle_messageを呼び出す
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("127.0.0.1", self.id))
-        sock.listen()
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_sock.bind(("127.0.0.1", self.id))
+        server_sock.listen()
+
+        print(f"[{self.id}] listening...")
 
         while True:
-            client_sock, sender_addr = sock.accept()
-            data = client_sock.recv(65536)
-            message = json.loads(data.decode("UTF-8"))
-            t = threading.Thread(target=self.handle_message, args=(message,))
+            client_sock, addr = server_sock.accept()
+            t = threading.Thread(
+                target=self.handle_connection,
+                args=(client_sock,)
+            )
+            t.daemon = True
             t.start()
 
-        pass
+
+    # def keep_listening(self):
+    #     #ソケット通信でデータを受信する
+    #     #データを受信したら別スレッドでhandle_messageを呼び出す
+    #     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    #     sock.bind(("127.0.0.1", self.id))
+    #     sock.listen()
+
+    #     while True:
+    #         client_sock, sender_addr = sock.accept()
+    #         data = client_sock.recv(65536)
+    #         client_sock.close()
+    #         message = json.loads(data.decode("UTF-8"))
+    #         t = threading.Thread(target=self.handle_message, args=(message,))
+    #         t.start()
+        
 
     def send_message(self, target_port, message):
-        #ソケット通信でデータを送信する
-        #メッセージにメッセージタイプを付与することで受信側が handle_message() で識別できるようにする
+        with self.conn_lock:
+            sock = self.connections.get(target_port)
+            if sock is None:
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.connect(("127.0.0.1", target_port))
+                    self.connections[target_port] = sock
+                except ConnectionRefusedError:
+                    return
+            try:
+                json_message = json.dumps(message).encode("UTF-8")
+                length = len(json_message)
+                sock.sendall(length.to_bytes(4,"big") + json_message)
+            except (BrokenPipeError, ConnectionResetError):
+                try:
+                    sock.close()
+                except:
+                    pass
+                del self.connections[target_port]
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        try: 
-            sock.connect(("127.0.0.1", target_port))
-            json_message = json.dumps(message).encode("UTF-8")
-            sock.send(json_message)
-        except ConnectionRefusedError:
-        #     print(f"[Process {self.id}] Process {target_port} is not available.")
-            pass
-        finally:
-            sock.close()
+
+    # def send_message(self, target_port, message):
+    #     #ソケット通信でデータを送信する
+    #     #メッセージにメッセージタイプを付与することで受信側が handle_message() で識別できるようにする
+
+    #     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    #     try: 
+    #         sock.connect(("127.0.0.1", target_port))
+    #         json_message = json.dumps(message).encode("UTF-8")
+    #         sock.send(json_message)
+    #     except ConnectionRefusedError:
+    #     #     print(f"[Process {self.id}] Process {target_port} is not available.")
+    #         pass
+    #     finally:
+    #         sock.close()
+
+    def handle_connection(self, sock):
+        buffer = b""
+
+        with sock:
+            while True:
+                try:
+                    data = sock.recv(4096)
+                    if not data:
+                        break
+                    buffer += data
+                    while True:
+                        if len(buffer) < 4:
+                            break
+                        msg_len = int.from_bytes(buffer[:4], "big")
+                        if len(buffer) < 4 + msg_len:
+                            break
+                        msg = buffer[4:4+msg_len]
+                        buffer = buffer[4+msg_len:]
+                        message = json.loads(msg.decode("UTF-8"))
+                        self.handle_message(message)
+                except (ConnectionResetError, json.JSONDecodeError):
+                    break
+
+        print(f"[{self.id}] connection closed")
+
 
 
     def handle_message(self, message):
@@ -299,7 +366,7 @@ class Process():
                 self.append_entries()
                 print("自分がリーダー") 
                 print(self.log)              
-                time.sleep(2.0)
+                time.sleep(0.1)#2
 
 if __name__ == "__main__":
     # 簡単なテストのためにプロセスIDをいくつか定義

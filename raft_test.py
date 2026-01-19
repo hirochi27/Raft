@@ -35,7 +35,7 @@ class ClientTest:
             with open(f"{p.id}.txt", "a") as f:
                 f.write(line)
 
-    def run(self, num_requests=10000):
+    def run(self, num_requests=100):
         print(f"=== クライアントテスト開始 ({num_requests} requests) ===")
 
         for i in range(num_requests):
@@ -54,12 +54,14 @@ class ClientTest:
             # commit を待つ
             self.wait_commit(log_index)
 
+            self.dump_state_machines(i + 1)
+
             # 100回に1回 state_machine を出力・保存
-            if (i + 1) % 100 == 0:
-                self.dump_state_machines(i + 1)
+            # if (i + 1) % 100 == 0:
+            #     self.dump_state_machines(i + 1)
 
         # 最終状態
-        time.sleep(1)
+        time.sleep(0.1)
         self.dump_state_machines("FINAL")
 
         print("=== テスト終了 ===")
@@ -78,11 +80,11 @@ if __name__ == "__main__":
     threading.Thread(target=follower1.run, daemon=True).start()
     threading.Thread(target=follower2.run, daemon=True).start()
 
-    time.sleep(1)
+    time.sleep(0.1)
 
     # テスト開始
     tester = ClientTest(leader, processes)
-    test_thread = threading.Thread(target=tester.run, args=(10000,), daemon=True)
+    test_thread = threading.Thread(target=tester.run, args=(100,), daemon=True)
     test_thread.start()
 
     # リーダー実行
