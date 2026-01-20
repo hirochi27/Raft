@@ -13,7 +13,7 @@ class ClientTest:
         # 各プロセスごとのログファイルを初期化
         for p in processes:
             with open(f"{p.id}.txt", "w") as f:
-                f.write(f"=== Process {p.id} state machine log ===\n")
+               f.write(f"=== Process {p.id} state machine log ===\n")
 
     def create_random_command(self):
         op = random.choice(["SET", "SET", "SET", "DELETE"])
@@ -31,6 +31,7 @@ class ClientTest:
     def dump_state_machines(self, step):
         for p in self.processes:
             line = f"[{step}] {p.state_machine}\n"
+
             print(f"[{p.id}] {line.strip()}")
             with open(f"{p.id}.txt", "a") as f:
                 f.write(line)
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     time.sleep(0.1)
 
     # テスト開始
-    tester = ClientTest(leader, processes)
+    tester = ClientTest(leader, processes,)
     test_thread = threading.Thread(target=tester.run, args=(100,), daemon=True)
     test_thread.start()
 

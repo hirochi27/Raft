@@ -1,0 +1,5 @@
+=== Process 10001 state machine log ===
+[Process 10001] 起動しました。
+[10001→10002] AppendEntriesRPC送信 entries = [{'term': 1, 'entry': ('SET', 'b', '54')}]
+[10001→10003] AppendEntriesRPC送信 entries = [{'term': 1, 'entry': ('SET', 'b', '54')}]
+自分がリーダー

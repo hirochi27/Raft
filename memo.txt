@@ -123,3 +123,84 @@ tno
   - インデックス3以上を持っているノード = 2個（3,3）→ 過半数未満
 
   よって、commit_index = 2 が正しい！
+
+
+
+
+  ❯ 今作ったclassloggerのdef　set　を書ききるのと、今まで書いたprintの部分でdefSetを呼び出せる     
+  ようにしたい。どうすればいい                                                                   
+                                                                                                 
+● 以下のように設計できます。                                                                     
+                                                                                                 
+  1. loggerクラスの完成                                                                          
+                                                                                                 
+  class Logger:                                                                                  
+      def __init__(self, process_id):                                                            
+          self.process_id = process_id                                                           
+          self.filename = f"{process_id}_log.txt"                                                
+          # ファイル初期化                                                                       
+          with open(self.filename, "w") as file:                                                 
+              file.write(f"=== Process {process_id} log ===\n")                                  
+                                                                                                 
+      def set(self, message):                                                                    
+          with open(self.filename, "a") as file:                                                 
+              file.write(message + "\n")                                                         
+                                                                                                 
+  2. ProcessクラスでLoggerを使う                                                                 
+                                                                                                 
+  __init__に追加：                                                                               
+  self.logger = Logger(self.id)                                                                  
+                                                                                                 
+  3. printをlogger.setに置き換え                                                                 
+                                                                                                 
+  # 変更前                                                                                       
+  print(f"[{self.id}] メッセージ")                                                               
+                                                                                                 
+  # 変更後                                                                                       
+  self.logger.set(f"[{self.id}] メッセージ")                                                     
+                                                                                                 
+  ---                                                                                            
+  ポイント：                                                                                     
+  - LoggerクラスはProcessクラスより前に定義する必要がある                                        
+  - def set(self, message)のようにselfを忘れずに                                                 
+  - ターミナルにも出力したい場合はset内でprint(message)も追加   
+
+
+
+
+
+   
+
+   
+   2つのエラーがあります。                                     
+                                                              
+  エラー1: Address already in use                             
+                                                              
+  前回のプロセスがまだポートを使っています。少し待ってから再実
+  行するか、以下で強制終了：                                  
+                                                              
+  # ポートを使っているプロセスを確認・終了                    
+  lsof -i :10001                                              
+  lsof -i :10002                                              
+  lsof -i :10003                                              
+  kill <PID>                                                  
+                                                              
+  エラー2: TypeError: can only concatenate list (not "str") to
+   list                                                       
+                                                              
+  385行目でself.logger.set(self.log)を呼んでいますが、self.log
+  はリストです。                                              
+                                                              
+  修正方法（2つのどちらか）：                                 
+                                                              
+  A. 呼び出し側を修正（385行目）：                            
+  self.logger.set(str(self.log))                              
+                                                              
+  B. loggerのsetメソッドを修正：                              
+  def set(self, message):                                     
+      with open(self.filename, "a") as file:                  
+          file.write(str(message) + "\n")  # str()で変換      
+                                                              
+  Bの方法がおすすめです。どんな型でも受け付けられるようになり 
+  ます。                                    
+                                                                   
