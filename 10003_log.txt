@@ -1,2 +1,0 @@
-=== Process 10003 state machine log ===
-[Process 10003] 起動しました。

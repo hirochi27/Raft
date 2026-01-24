@@ -6,7 +6,7 @@ import time
 class logger:
     def __init__(self, process_id):
         self.process_id = process_id
-        self.filename = f"{process_id}_log.txt"
+        self.filename = f"{process_id}_log_noentry.txt"
 
         with open(self.filename, "w") as file:
             file.write(f"=== Process {self.process_id} state machine log ===\n")
@@ -14,7 +14,7 @@ class logger:
 
     def set(self, message):
         with open(self.filename, "a") as file:
-            file.write(message + "\n")
+            file.write(str(message) + "\n")
         #initで作ったファイルに書き込み
 
 class Process():
@@ -85,7 +85,7 @@ class Process():
             }
 
             self.log.append(log_entry)#リーダーのログに追加
-            self.logger.set(f"[{self.id}]ログ追加:{entry}, log = {self.log}")
+            #self.logger.set(f"[{self.id}]ログ追加:{entry}, log = {self.log}")
 
             self.match_index[self.leader_id] = len(self.log) -1 #リーダーのmatchindex?
             #self.logger.set(str(self.match_index) + "リーダーのマッチインデックス更新")
@@ -170,7 +170,7 @@ class Process():
             "success" :  self.append_entries_success
             }
 
-        self.logger.set(f"[{self.id}] log={self.log}")
+        #self.logger.set(f"[{self.id}] log={self.log}")
 
         self.send_message(self.leader_id, response)
         #self.logger.set("!!self.append_entries_success!!")
