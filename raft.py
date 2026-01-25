@@ -6,16 +6,27 @@ import time
 class logger:
     def __init__(self, process_id):
         self.process_id = process_id
-        self.filename = f"{process_id}_log_noentry.txt"
-
+        self.filename = f"log_{process_id}.txt"
+        self.state_machine_filename = f"state_machine_{process_id}.txt"
+    
         with open(self.filename, "w") as file:
             file.write(f"=== Process {self.process_id} state machine log ===\n")
     
+        with open(self.state_machine_filename, "w") as file:
+            file.write(f"=== Process {self.process_id} state machine log ===\n")
+
 
     def set(self, message):
         with open(self.filename, "a") as file:
             file.write(str(message) + "\n")
         #initで作ったファイルに書き込み
+
+    def set_state_machine(self, state_machine, process_id):
+        message = f"[{process_id}] ステートマシン　=　{state_machine}"
+        with open(self.state_machine_filename, "a") as file:                         
+            file.write(message + "\n")
+
+        
 
 class Process():
     def __init__(self, process_id, all_process_ids, prev_log_index, prev_log_term, leader_commit, next_index, append_entries_success ):
@@ -216,7 +227,8 @@ class Process():
             elif op == "GET":
                 self.logger.set(f"GET {key}={self.state_machine.get(key, 'not found')}")
 
-            self.logger.set(f"[{self.id}] ステートマシン　=　{self.state_machine}")
+        self.logger.set_state_machine(self.state_machine, self.id)   
+        #self.logger.set(f"[{self.id}] ステートマシン　=　{self.state_machine}")
 
 
     # def keep_listening(self):
@@ -382,7 +394,7 @@ class Process():
             if self.is_leader == True:
                 self.append_entries()
                 self.logger.set("自分がリーダー")
-                self.logger.set(self.log)
+                #self.logger.set(self.log)
                 time.sleep(0.1)#2
 
 
