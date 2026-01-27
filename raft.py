@@ -19,7 +19,7 @@ class logger:
     def set(self, message):
         with open(self.filename, "a") as file:
             file.write(str(message) + "\n")
-        print(message)
+        #print(message)
         #initで作ったファイルに書き込み
 
     def set_state_machine(self, state_machine, process_id):
@@ -89,6 +89,7 @@ class Process():
                 entry = (parts[0].upper(), parts[1], None)
             else:
                 self.logger.set("無効なコマンド")
+                print("無効なコマンド")
 
 
             log_entry = {
@@ -99,9 +100,12 @@ class Process():
             self.log.append(log_entry)#リーダーのログに追加
             self.logger.set(f"[{self.id}] ログ追加: {entry}")
             self.logger.set(f"現在のログ {self.log}")
+            print("\033[35m" + f"[{self.id}] ログ追加: {entry}" + "\033[0m]")
+            print(f"現在のログ {self.log}")
 
             self.match_index[self.leader_id] = len(self.log) -1 #リーダーのmatchindex?
             self.logger.set(f"[{self.id}] matchIndex[{self.leader_id}]={self.match_index[self.leader_id]} (リーダー自身)")
+            print(f"[{self.id}] matchIndex[{self.leader_id}]={self.match_index[self.leader_id]} (リーダー自身)")
             time.sleep(2)
             
     def output_entries(self):
@@ -123,6 +127,7 @@ class Process():
                 self.prev_log_term = self.log[self.prev_log_index]["term"]
             else:
                 self.logger.set(f"Warning: prev_log_index {self.prev_log_index} is out of range for log length {len(self.log)}")
+                print(f"Warning: prev_log_index {self.prev_log_index} is out of range for log length {len(self.log)}")
                 self.prev_log_term = 1
                 #logの中の、インデックス＝prevlogindexに含まれるキーtermの値を取得
 
@@ -141,6 +146,7 @@ class Process():
 
             self.send_message(id, message_append_entries)
             self.logger.set(f"[{self.id}→{id}] AppendEntriesRPC送信 entries = {self.entries}")
+            print("\033[32m" +f"[{self.id}→{id}] AppendEntriesRPC送信 entries = {self.entries}"+ "\033[0m")
             time.sleep(2)
 
     def on_append_entries(self, term,  leader_id, prev_log_index, prev_log_term, entries, leader_commit):
@@ -148,10 +154,12 @@ class Process():
         #prevlogindex,prevlogtermを受け取ってOkの時はsuccessをTrue。一致しない時はFalse
         #これをリーダーへ返す
         self.logger.set(f"[{self.id}] ← {leader_id} AppendEntries受信 entries={entries}")
+        print("\033[32m" +f"[{self.id}] ← {leader_id} AppendEntries受信 entries={entries}"+ "\033[0m")
         self.leader_commit = leader_commit
         self.apply_to_state_machine()
-        self.logger.set(f"[{self.id}] leader commit受信={leader_commit}")
+        #self.logger.set(f"[{self.id}] leader commit受信={leader_commit}")
         self.logger.set(f"[{self.id}] ステートマシン適用 commit={leader_commit}")
+        print("\033[33m" +f"[{self.id}] ステートマシン適用 commit={leader_commit}"+ "\033[0m")
 
         if term < self.current_term:  
             self.append_entries_success = False
@@ -163,6 +171,8 @@ class Process():
             self.append_entries_success = True
             self.logger.set(f"[{self.id}] ログ追加完了 {self.log}")
             self.logger.set(f"[{self.id}] → {self.leader_id} 応答: True")
+            print("\033[35m" + f"[{self.id}] ログ追加完了 {self.log}" + "\033[0m")
+            print("\033[34m" + f"[{self.id}] → {self.leader_id} 応答: True"+ "\033[0m")
         elif 0 <= prev_log_index < len(self.log):
             if prev_log_term == self.log[prev_log_index]["term"]:
                 self.log = self.log[:prev_log_index + 1]
@@ -171,12 +181,16 @@ class Process():
                 self.append_entries_success = True
                 self.logger.set(f"[{self.id}] ログ追加完了 {self.log}")
                 self.logger.set(f"[{self.id}] → {self.leader_id} 応答: True")
+                print("\033[35m" + f"[{self.id}] ログ追加完了 {self.log}" + "\033[0m")
+                print("\033[34m" + f"[{self.id}] → {self.leader_id} 応答: True" + "\033[0m")
             else:
                 self.append_entries_success = False
                 self.logger.set(f"[{self.id}] → {self.leader_id} 応答: False")
+                print("\033[34m" + f"[{self.id}] → {self.leader_id} 応答: False" + "\033[0m")
         else:
             self.append_entries_success = False
             self.logger.set(f"[{self.id}] → {self.leader_id} 応答: False")
+            print("\033[34m" + f"[{self.id}] → {self.leader_id} 応答: False" + "\033[0m")
 
 
         response = {
@@ -199,14 +213,19 @@ class Process():
             count = self.sent_entries_len.get(from_id, 0)
             self.next_index[from_id] = self.next_index[from_id] + count#送ったエントリ数文next_indexを増やす
             self.logger.set(f"[{self.id}] ← {from_id} 応答受信: {success}")
+            print("\033[34m" + f"[{self.id}] ← {from_id} 応答受信: {success}" + "\033[0m")
             self.logger.set(f"[{self.id}] nextIndex[{from_id}]={self.next_index[from_id]}")
+            print(f"[{self.id}] nextIndex[{from_id}]={self.next_index[from_id]}")
             self.match_index[from_id] = self.next_index[from_id] - 1 #コミットのためのどこまで複製したかの追跡
             self.logger.set(f"[{self.id}] matchIndex[{from_id}]={self.match_index[from_id]}")
+            print(f"[{self.id}] matchIndex[{from_id}]={self.match_index[from_id]}")
         elif success == False:
             #self.logger.set("False")
             self.next_index[from_id] = max(0, self.next_index[from_id] -1)
             self.logger.set(f"[{self.id}] ← {from_id} 応答受信: failure")
+            print("\033[34m" + f"[{self.id}] ← {from_id} 応答受信: failure" + "\033[0m")
             self.logger.set(f"nextIndex={self.next_index[from_id]}")
+            print(f"nextIndex={self.next_index[from_id]}")
 
         all_match_index_value = list(self.match_index.values())
         all_match_index_value.sort()#昇順？に並べる→昇順にしたら中心にいるのはぜったい過半数
@@ -214,10 +233,13 @@ class Process():
         old_commit = self.leader_commit
         self.leader_commit = all_match_index_value[majority_index]
         self.logger.set(f"[{self.id}] matchIndex={self.match_index} 過半数={self.leader_commit}")
+        print(f"[{self.id}] matchIndex={self.match_index} 過半数={self.leader_commit}")
         if old_commit != self.leader_commit:
             self.logger.set(f"[{self.id}] leader_commit更新: {old_commit} → {self.leader_commit}")
+            print(f"[{self.id}] leader_commit更新: {old_commit} → {self.leader_commit}")
         self.apply_to_state_machine()
         self.logger.set(f"[{self.id}] ステートマシン適用 commit={self.leader_commit}")
+        print("\033[33m" + f"[{self.id}] ステートマシン適用 commit={self.leader_commit}" + "\033[0m")
 
     def apply_to_state_machine(self):
         while self.last_applied < self.leader_commit:
@@ -235,6 +257,7 @@ class Process():
                 del self.state_machine[key] 
             elif op == "GET":
                 self.logger.set(f"GET {key}={self.state_machine.get(key, 'not found')}")
+                print(f"GET {key}={self.state_machine.get(key, 'not found')}")
        
         self.logger.set_state_machine(self.state_machine, self.id)
         #self.logger.set(f"[{self.id}] ステートマシン　=　{self.state_machine}")
@@ -379,6 +402,7 @@ class Process():
 
     def run(self):
         self.logger.set(f"[Process {self.id}] 起動しました。")
+        print(f"[Process {self.id}] 起動しました。")
         #個別スレッドとしてソケット通信を待つkeep_listeningを起動
         listener_thread = threading.Thread(target=self.keep_listening)
         listener_thread.daemon = True
@@ -403,7 +427,9 @@ class Process():
             if self.is_leader == True:
                 self.append_entries()
                 self.logger.set("自分がリーダー")
+                print("自分がリーダー")
                 self.logger.set(self.log)
+                print(self.log)
                 time.sleep(2)
 
 

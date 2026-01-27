@@ -1,0 +1,68 @@
+=== Process 10001 state machine log ===
+[Process 10001] 起動しました。
+[10001→10002] AppendEntriesRPC送信 entries = []
+[10001] ← 10002 応答受信: True
+[10001] nextIndex[10002]=0
+[10001] matchIndex[10002]=-1
+[10001] matchIndex={10001: -1, 10002: -1, 10003: -1} 過半数=-1
+[10001] ステートマシン適用 commit=-1
+[10001→10003] AppendEntriesRPC送信 entries = []
+[10001] ← 10003 応答受信: True
+[10001] nextIndex[10003]=0
+[10001] matchIndex[10003]=-1
+[10001] matchIndex={10001: -1, 10002: -1, 10003: -1} 過半数=-1
+[10001] ステートマシン適用 commit=-1
+自分がリーダー
+[]
+[10001→10002] AppendEntriesRPC送信 entries = []
+[10001] ← 10002 応答受信: True
+[10001] nextIndex[10002]=0
+[10001] matchIndex[10002]=-1
+[10001] matchIndex={10001: -1, 10002: -1, 10003: -1} 過半数=-1
+[10001] ステートマシン適用 commit=-1
+[10001→10003] AppendEntriesRPC送信 entries = []
+[10001] ← 10003 応答受信: True
+[10001] nextIndex[10003]=0
+[10001] matchIndex[10003]=-1
+[10001] matchIndex={10001: -1, 10002: -1, 10003: -1} 過半数=-1
+[10001] ステートマシン適用 commit=-1
+自分がリーダー
+[]
+[10001] ログ追加: ('SET', 'x', '10')
+現在のログ [{'term': 1, 'entry': ('SET', 'x', '10')}]
+[10001] matchIndex[10001]=0 (リーダー自身)
+[10001→10002] AppendEntriesRPC送信 entries = [{'term': 1, 'entry': ('SET', 'x', '10')}]
+[10001] ← 10002 応答受信: True
+[10001] nextIndex[10002]=1
+[10001] matchIndex[10002]=0
+[10001] matchIndex={10001: 0, 10002: 0, 10003: -1} 過半数=0
+[10001] leader_commit更新: -1 → 0
+[10001] ステートマシン適用 commit=0
+[10001→10003] AppendEntriesRPC送信 entries = [{'term': 1, 'entry': ('SET', 'x', '10')}]
+[10001] ← 10003 応答受信: True
+[10001] nextIndex[10003]=1
+[10001] matchIndex[10003]=0
+[10001] matchIndex={10001: 0, 10002: 0, 10003: 0} 過半数=0
+[10001] ステートマシン適用 commit=0
+自分がリーダー
+[{'term': 1, 'entry': ('SET', 'x', '10')}]
+[10001→10002] AppendEntriesRPC送信 entries = []
+[10001] ← 10002 応答受信: True
+[10001] nextIndex[10002]=1
+[10001] matchIndex[10002]=0
+[10001] matchIndex={10001: 0, 10002: 0, 10003: 0} 過半数=0
+[10001] ステートマシン適用 commit=0
+[10001→10003] AppendEntriesRPC送信 entries = []
+[10001] ← 10003 応答受信: True
+[10001] nextIndex[10003]=1
+[10001] matchIndex[10003]=0
+[10001] matchIndex={10001: 0, 10002: 0, 10003: 0} 過半数=0
+[10001] ステートマシン適用 commit=0
+自分がリーダー
+[{'term': 1, 'entry': ('SET', 'x', '10')}]
+[10001→10002] AppendEntriesRPC送信 entries = []
+[10001] ← 10002 応答受信: True
+[10001] nextIndex[10002]=1
+[10001] matchIndex[10002]=0
+[10001] matchIndex={10001: 0, 10002: 0, 10003: 0} 過半数=0
+[10001] ステートマシン適用 commit=0

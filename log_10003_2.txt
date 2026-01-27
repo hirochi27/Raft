@@ -1,0 +1,18 @@
+=== Process 10003 state machine log ===
+[Process 10003] 起動しました。
+[10003] ← 10001 AppendEntries受信 entries=[]
+[10003] ステートマシン適用 commit=-1
+[10003] ログ追加完了 []
+[10003] → 10001 応答: True
+[10003] ← 10001 AppendEntries受信 entries=[]
+[10003] ステートマシン適用 commit=-1
+[10003] ログ追加完了 []
+[10003] → 10001 応答: True
+[10003] ← 10001 AppendEntries受信 entries=[{'term': 1, 'entry': ['SET', 'x', '10']}]
+[10003] ステートマシン適用 commit=0
+[10003] ログ追加完了 [{'term': 1, 'entry': ['SET', 'x', '10']}]
+[10003] → 10001 応答: True
+[10003] ← 10001 AppendEntries受信 entries=[]
+[10003] ステートマシン適用 commit=0
+[10003] ログ追加完了 [{'term': 1, 'entry': ['SET', 'x', '10']}]
+[10003] → 10001 応答: True
