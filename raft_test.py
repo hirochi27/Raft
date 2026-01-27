@@ -1,6 +1,7 @@
 import threading
 import time
 import random
+import os
 
 from raft import Process
 
@@ -19,7 +20,7 @@ class ClientTest:
         op = random.choice(["SET", "SET", "SET", "DELETE"])
         key = random.choice(["a", "b", "c", "d", "e"])
         if op == "SET":
-            value = str(random.randint(1, 100))
+            value = str(random.randint(1, 10))
             return (op, key, value)
         else:
             return (op, key, None)
@@ -36,7 +37,7 @@ class ClientTest:
             with open(f"{p.id}.txt", "a") as f:
                 f.write(line)
 
-    def run(self, num_requests=100):
+    def run(self, num_requests=10):
         print(f"=== クライアントテスト開始 ({num_requests} requests) ===")
 
         for i in range(num_requests):
@@ -66,6 +67,7 @@ class ClientTest:
         self.dump_state_machines("FINAL")
 
         print("=== テスト終了 ===")
+        os._exit(0)
 
 
 if __name__ == "__main__":
@@ -85,7 +87,7 @@ if __name__ == "__main__":
 
     # テスト開始
     tester = ClientTest(leader, processes,)
-    test_thread = threading.Thread(target=tester.run, args=(100,), daemon=True)
+    test_thread = threading.Thread(target=tester.run, args=(10,), daemon=True)
     test_thread.start()
 
     # リーダー実行

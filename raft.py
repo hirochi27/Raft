@@ -6,7 +6,7 @@ import time
 class logger:
     def __init__(self, process_id):
         self.process_id = process_id
-        self.filename = f"log_{process_id}.txt"
+        self.filename = f"log_{process_id}_2.txt"
         self.state_machine_filename = f"state_machine_{process_id}.txt"
     
         with open(self.filename, "w") as file:
@@ -19,6 +19,7 @@ class logger:
     def set(self, message):
         with open(self.filename, "a") as file:
             file.write(str(message) + "\n")
+        print(message)
         #initで作ったファイルに書き込み
 
     def set_state_machine(self, state_machine, process_id):
@@ -43,7 +44,7 @@ class Process():
         self.prev_log_index = prev_log_index
         self.prev_log_term = prev_log_term
         self.entries = [] #フォロワーに送るエントリ
-        self.leader_commit = leader_commit
+        self.leader_commit = -1
 
         self.log = [] #持ってるログ（ターム、エントリ）
         self.next_index = {
@@ -96,11 +97,13 @@ class Process():
             }
 
             self.log.append(log_entry)#リーダーのログに追加
-            #self.logger.set(f"[{self.id}]ログ追加:{entry}, log = {self.log}")
+            self.logger.set(f"[{self.id}] ログ追加: {entry}")
+            self.logger.set(f"現在のログ {self.log}")
 
             self.match_index[self.leader_id] = len(self.log) -1 #リーダーのmatchindex?
-            #self.logger.set(str(self.match_index) + "リーダーのマッチインデックス更新")
-
+            self.logger.set(f"[{self.id}] matchIndex[{self.leader_id}]={self.match_index[self.leader_id]} (リーダー自身)")
+            time.sleep(2)
+            
     def output_entries(self):
         pass
 
@@ -134,12 +137,11 @@ class Process():
             "leaderCommit" : self.leader_commit
             }
             #フォロワーから返信受け取ってから以下のプリント
-            #self.logger.set("prevlogインデックス"+str(self.#prev_log_index)+"prevlogターム"+ str(self.prev_log_term))
+            #self.logger.set("prevlogインデックス"+str(self.prev_log_index)+"prevlogターム"+ str(self.prev_log_term))
 
             self.send_message(id, message_append_entries)
             self.logger.set(f"[{self.id}→{id}] AppendEntriesRPC送信 entries = {self.entries}")
-        time.sleep(0.1)#2
-
+            time.sleep(2)
 
     def on_append_entries(self, term,  leader_id, prev_log_index, prev_log_term, entries, leader_commit):
         #appendEintriesを受け取ったフォロワー側の処理
@@ -148,9 +150,10 @@ class Process():
         self.logger.set(f"[{self.id}] ← {leader_id} AppendEntries受信 entries={entries}")
         self.leader_commit = leader_commit
         self.apply_to_state_machine()
+        self.logger.set(f"[{self.id}] leader commit受信={leader_commit}")
         self.logger.set(f"[{self.id}] ステートマシン適用 commit={leader_commit}")
 
-        if term < self.current_term:  # != ではなく <
+        if term < self.current_term:  
             self.append_entries_success = False
             return
         self.current_term = term
@@ -158,14 +161,15 @@ class Process():
             for e in entries:
                 self.log.append(e)
             self.append_entries_success = True
-            #self.logger.set(f"エントリ追加後のlog: {self.log}")
+            self.logger.set(f"[{self.id}] ログ追加完了 {self.log}")
+            self.logger.set(f"[{self.id}] → {self.leader_id} 応答: True")
         elif 0 <= prev_log_index < len(self.log):
             if prev_log_term == self.log[prev_log_index]["term"]:
                 self.log = self.log[:prev_log_index + 1]
                 for e in entries:
                     self.log.append(e)
                 self.append_entries_success = True
-                #self.logger.set(f"エントリ追加後のlog: {self.log}")
+                self.logger.set(f"[{self.id}] ログ追加完了 {self.log}")
                 self.logger.set(f"[{self.id}] → {self.leader_id} 応答: True")
             else:
                 self.append_entries_success = False
@@ -195,8 +199,9 @@ class Process():
             count = self.sent_entries_len.get(from_id, 0)
             self.next_index[from_id] = self.next_index[from_id] + count#送ったエントリ数文next_indexを増やす
             self.logger.set(f"[{self.id}] ← {from_id} 応答受信: {success}")
-            self.logger.set(f"nextIndex={self.next_index[from_id]}")
+            self.logger.set(f"[{self.id}] nextIndex[{from_id}]={self.next_index[from_id]}")
             self.match_index[from_id] = self.next_index[from_id] - 1 #コミットのためのどこまで複製したかの追跡
+            self.logger.set(f"[{self.id}] matchIndex[{from_id}]={self.match_index[from_id]}")
         elif success == False:
             #self.logger.set("False")
             self.next_index[from_id] = max(0, self.next_index[from_id] -1)
@@ -206,7 +211,11 @@ class Process():
         all_match_index_value = list(self.match_index.values())
         all_match_index_value.sort()#昇順？に並べる→昇順にしたら中心にいるのはぜったい過半数
         majority_index = len(all_match_index_value) // 2 #len(self.all_process_ids) / 2 + 1
+        old_commit = self.leader_commit
         self.leader_commit = all_match_index_value[majority_index]
+        self.logger.set(f"[{self.id}] matchIndex={self.match_index} 過半数={self.leader_commit}")
+        if old_commit != self.leader_commit:
+            self.logger.set(f"[{self.id}] leader_commit更新: {old_commit} → {self.leader_commit}")
         self.apply_to_state_machine()
         self.logger.set(f"[{self.id}] ステートマシン適用 commit={self.leader_commit}")
 
@@ -223,11 +232,11 @@ class Process():
             if op == "SET":
                 self.state_machine[key] = value
             elif op == "DELETE" and key in self.state_machine:
-                del self.state_machine[key]
+                del self.state_machine[key] 
             elif op == "GET":
                 self.logger.set(f"GET {key}={self.state_machine.get(key, 'not found')}")
-
-        self.logger.set_state_machine(self.state_machine, self.id)   
+       
+        self.logger.set_state_machine(self.state_machine, self.id)
         #self.logger.set(f"[{self.id}] ステートマシン　=　{self.state_machine}")
 
 
@@ -394,8 +403,8 @@ class Process():
             if self.is_leader == True:
                 self.append_entries()
                 self.logger.set("自分がリーダー")
-                #self.logger.set(self.log)
-                time.sleep(0.1)#2
+                self.logger.set(self.log)
+                time.sleep(2)
 
 
     
